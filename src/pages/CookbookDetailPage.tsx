@@ -1,174 +1,165 @@
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Search, Clock, Users, Plus } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { BookOpen, Plus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-const CookbookDetailPage = () => {
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { RecipeCard } from '@/components/RecipeCard';
+import { useData } from '@/contexts/DataContext';
+import { cn } from '@/lib/utils';
+
+export default function CookbookDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { cookbooks, recipes, addRecipeToCookbook } = useData();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddRecipes, setShowAddRecipes] = useState(false);
+  const navigate = useNavigate();
+  const {
+    getCookbook,
+    recipes,
+    addRecipeToCookbook,
+    removeRecipeFromCookbook,
+    deleteCookbook,
+  } = useData();
 
-  const cookbook = id === 'all' ? null : cookbooks.find(c => c.id === id);
-  const cookbookRecipes = id === 'all' 
-    ? recipes 
-    : recipes.filter(recipe => cookbook?.recipeIds.includes(recipe.id));
+  const [picking, setPicking] = useState(false);
+  const cookbook = id ? getCookbook(id) : undefined;
 
-  const filteredRecipes = cookbookRecipes.filter(recipe =>
-    recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    recipe.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    recipe.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  if (!cookbook) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="Cookbook not found"
+        description="It may have been deleted."
+        action={<Button onClick={() => navigate('/cookbooks')}>Back to cookbooks</Button>}
+      />
+    );
+  }
 
-  const availableRecipes = recipes.filter(recipe => 
-    !cookbook?.recipeIds.includes(recipe.id)
-  );
+  const contents = recipes.filter((r) => cookbook.recipeIds.includes(r.id));
+  const available = recipes.filter((r) => !cookbook.recipeIds.includes(r.id));
 
-  const handleAddRecipe = (recipeId: string) => {
-    if (cookbook) {
-      addRecipeToCookbook(recipeId, cookbook.id);
-    }
+  const handleDelete = () => {
+    deleteCookbook(cookbook.id);
+    toast.success(`Deleted "${cookbook.name}"`);
+    navigate('/cookbooks');
   };
 
-  const title = cookbook ? cookbook.name : 'All Recipes';
-  const description = cookbook ? cookbook.description : 'Your complete recipe collection';
-
   return (
-    <div className="p-4 max-w-md mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
-        <p className="text-gray-600">{description}</p>
-        <div className="mt-2 text-sm text-gray-500">
-          {cookbookRecipes.length} recipe{cookbookRecipes.length !== 1 ? 's' : ''}
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="text"
-          placeholder="Search recipes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        />
-      </div>
-
-      {/* Add Recipes Button (only for custom cookbooks) */}
-      {cookbook && (
-        <div className="mb-6">
-          {!showAddRecipes ? (
-            <button
-              onClick={() => setShowAddRecipes(true)}
-              className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-primary-500 hover:bg-primary-50 transition-colors"
+    <div className="space-y-6">
+      <PageHeader
+        title={cookbook.name}
+        description={cookbook.description || undefined}
+        backTo="/cookbooks"
+        action={
+          <>
+            <Button onClick={() => setPicking(true)} disabled={available.length === 0}>
+              <Plus className="size-4" />
+              Add recipes
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              aria-label="Delete cookbook"
+              className="text-muted-foreground hover:text-destructive"
             >
-              <Plus className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 font-medium">Add Recipes to Cookbook</p>
-            </button>
-          ) : (
-            <div className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Recipes</h3>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {availableRecipes.map(recipe => (
-                  <div key={recipe.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg">
-                    <img
-                      src={recipe.image}
-                      alt={recipe.title}
-                      className="w-12 h-12 rounded-lg object-cover"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{recipe.title}</h4>
-                      <p className="text-sm text-gray-600 truncate">{recipe.description}</p>
-                    </div>
-                    <button
-                      onClick={() => handleAddRecipe(recipe.id)}
-                      className="btn-primary text-sm px-3 py-1"
-                    >
-                      Add
-                    </button>
-                  </div>
-                ))}
-                {availableRecipes.length === 0 && (
-                  <p className="text-gray-500 text-center py-4">All recipes are already in this cookbook</p>
-                )}
-              </div>
-              <button
-                onClick={() => setShowAddRecipes(false)}
-                className="w-full btn-outline mt-4"
+              <Trash2 className="size-4" />
+            </Button>
+          </>
+        }
+      />
+
+      {contents.length === 0 ? (
+        <EmptyState
+          icon={BookOpen}
+          title="Nothing in here yet"
+          description="Add recipes from your collection to build this cookbook up."
+          action={
+            <Button onClick={() => setPicking(true)} disabled={available.length === 0}>
+              <Plus className="size-4" />
+              Add recipes
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {contents.map((recipe) => (
+            <div key={recipe.id} className="relative">
+              <RecipeCard recipe={recipe} />
+              <Button
+                variant="secondary"
+                size="icon-sm"
+                aria-label={`Remove ${recipe.title} from this cookbook`}
+                onClick={() => {
+                  removeRecipeFromCookbook(recipe.id, cookbook.id);
+                  toast.success('Removed from cookbook');
+                }}
+                className="absolute left-2.5 top-2.5 bg-background/85 backdrop-blur-sm hover:text-destructive"
               >
-                Done
-              </button>
+                <Trash2 className="size-3.5" />
+              </Button>
             </div>
-          )}
+          ))}
         </div>
       )}
 
-      {/* Recipes Grid */}
-      <div className="space-y-4">
-        {filteredRecipes.map((recipe) => (
-          <Link key={recipe.id} to={`/recipes/${recipe.id}`}>
-            <div className="recipe-card">
-              <div className="flex">
-                <img
-                  src={recipe.image}
-                  alt={recipe.title}
-                  className="w-24 h-24 rounded-l-xl object-cover"
-                />
-                <div className="flex-1 p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                    {recipe.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                    {recipe.description}
-                  </p>
-                  
-                  <div className="flex items-center space-x-4 text-xs text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{recipe.prepTime + recipe.cookTime}m</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-3 h-3" />
-                      <span>{recipe.servings}</span>
-                    </div>
-                    <div className="flex space-x-1">
-                      {recipe.tags.slice(0, 2).map((tag) => (
-                        <span
-                          key={tag}
-                          className="bg-primary-100 text-primary-700 px-2 py-1 rounded-full text-xs"
-                        >
-                          {tag}
+      <Dialog open={picking} onOpenChange={setPicking}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add recipes</DialogTitle>
+            <DialogDescription>
+              Pick from the {available.length} not already in this cookbook.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            {available.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Every recipe is already in this cookbook.
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {available.map((recipe) => (
+                  <li key={recipe.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addRecipeToCookbook(recipe.id, cookbook.id);
+                        toast.success(`Added "${recipe.title}"`);
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors',
+                        'hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                      )}
+                    >
+                      <img
+                        src={recipe.image}
+                        alt=""
+                        loading="lazy"
+                        className="size-12 shrink-0 rounded-lg object-cover"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{recipe.title}</span>
+                        <span className="block truncate text-sm text-muted-foreground">
+                          {recipe.description}
                         </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      {filteredRecipes.length === 0 && (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="w-8 h-8 text-gray-400" />
+                      </span>
+                      <Plus className="size-4 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {searchTerm ? 'No recipes found' : 'No recipes yet'}
-          </h3>
-          <p className="text-gray-600">
-            {searchTerm 
-              ? 'Try adjusting your search terms'
-              : 'Add some recipes to get started'
-            }
-          </p>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
-
-export default CookbookDetailPage;
+}

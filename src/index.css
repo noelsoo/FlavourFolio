@@ -3,51 +3,153 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 40 30% 98%;
+    --foreground: 30 12% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 12% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 12% 12%;
+
+    /* Herb green — the brand anchor */
+    --primary: 146 25% 39%;
+    --primary-foreground: 40 30% 98%;
+
+    --secondary: 36 30% 94%;
+    --secondary-foreground: 30 12% 20%;
+
+    --muted: 36 22% 94%;
+    --muted-foreground: 30 8% 45%;
+
+    /* Warm paprika accent */
+    --accent: 22 74% 47%;
+    --accent-foreground: 40 30% 98%;
+
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 40 30% 98%;
+
+    --border: 33 18% 88%;
+    --input: 33 18% 88%;
+    --ring: 146 25% 39%;
+
+    --macro-protein: 210 72% 50%;
+    --macro-carbs: 38 88% 50%;
+    --macro-fat: 340 65% 55%;
+    --macro-fiber: 150 45% 42%;
+
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 25 12% 8%;
+    --foreground: 40 20% 94%;
+
+    --card: 25 11% 11%;
+    --card-foreground: 40 20% 94%;
+
+    --popover: 25 11% 11%;
+    --popover-foreground: 40 20% 94%;
+
+    --primary: 146 34% 55%;
+    --primary-foreground: 25 12% 8%;
+
+    --secondary: 25 8% 18%;
+    --secondary-foreground: 40 20% 94%;
+
+    --muted: 25 8% 17%;
+    --muted-foreground: 35 10% 63%;
+
+    --accent: 22 80% 58%;
+    --accent-foreground: 25 12% 8%;
+
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 40 20% 94%;
+
+    --border: 25 8% 21%;
+    --input: 25 8% 21%;
+    --ring: 146 34% 55%;
+
+    --macro-protein: 210 75% 62%;
+    --macro-carbs: 38 88% 58%;
+    --macro-fat: 340 68% 65%;
+    --macro-fiber: 150 45% 52%;
+  }
+}
+
+@layer base {
   * {
-    @apply border-gray-200;
+    @apply border-border;
   }
-  
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-gray-50 text-gray-900 font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
+    /* Respect iOS/Android safe areas on the notched devices. */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Only show focus rings for keyboard users, never on touch taps. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
   }
-  
-  .btn-secondary {
-    @apply bg-secondary-500 hover:bg-secondary-600 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2;
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
-  
-  .btn-outline {
-    @apply border border-primary-500 text-primary-500 hover:bg-primary-500 hover:text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
-  
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200;
-  }
-  
-  .recipe-card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all duration-200 hover:scale-[1.02];
+
+  /* Sweeping highlight used by skeleton loaders. */
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.06),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
   }
 }
 
-/* Custom scrollbar */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: hsl(var(--border));
+  border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: hsl(var(--muted-foreground) / 0.5);
 }

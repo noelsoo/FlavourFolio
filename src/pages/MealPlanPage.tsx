@@ -1,183 +1,445 @@
-import React, { useState } from 'react';
-import { Calendar, Plus, X } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
+import { useMemo, useState } from 'react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
-const MealPlanPage = () => {
-  const { recipes, mealPlans, updateMealPlan } = useData();
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showRecipeSelector, setShowRecipeSelector] = useState(false);
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { TargetBar } from '@/components/nutrition/NutritionPanel';
+import {
+  MEAL_SLOTS,
+  useData,
+  type MealSlot,
+  type Recipe,
+} from '@/contexts/DataContext';
+import { cn, toDateKey, weekDates } from '@/lib/utils';
+import { EMPTY_NUTRIENTS, type FoodNutrients } from '@/lib/nutrition';
 
-  const currentWeek = getCurrentWeekDates();
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const SLOT_LABEL: Record<MealSlot, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
+};
 
-  const getMealPlan = (date: string) => {
-    return mealPlans.find(plan => plan.date === date);
+export default function MealPlanPage() {
+  const navigate = useNavigate();
+  const {
+    recipes,
+    mealPlan,
+    getRecipe,
+    getNutrition,
+    addMeal,
+    removeMeal,
+    generateGroceryList,
+    clearWeek,
+    preferences,
+  } = useData();
+
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [picking, setPicking] = useState<{ date: string; slot: MealSlot } | null>(null);
+
+  const dates = useMemo(() => weekDates(new Date(), weekOffset), [weekOffset]);
+  const today = toDateKey(new Date());
+
+  /** Per-serving nutrition for one planned entry, scaled to planned servings. */
+  const nutritionForEntry = (recipeId: string, plannedServings: number): FoodNutrients => {
+    const recipe = getRecipe(recipeId);
+    const nutrition = getNutrition(recipeId);
+    if (!recipe || !nutrition) return EMPTY_NUTRIENTS;
+    const servings = plannedServings > 0 ? plannedServings : recipe.servings;
+    const per = nutrition.perServing;
+    return {
+      calories: per.calories * servings,
+      protein: per.protein * servings,
+      carbs: per.carbs * servings,
+      fat: per.fat * servings,
+      fiber: per.fiber * servings,
+      sugar: per.sugar * servings,
+      sodium: per.sodium * servings,
+    };
   };
 
-  const getRecipesForDate = (date: string) => {
-    const plan = getMealPlan(date);
-    if (!plan) return [];
-    return recipes.filter(recipe => plan.recipeIds.includes(recipe.id));
-  };
+  const weekTotals = useMemo(() => {
+    const byDate = new Map<string, FoodNutrients>();
+    for (const date of dates) byDate.set(date, { ...EMPTY_NUTRIENTS });
 
-  const handleAddRecipe = (date: string, recipeId: string) => {
-    const currentPlan = getMealPlan(date);
-    const currentRecipeIds = currentPlan ? currentPlan.recipeIds : [];
-    updateMealPlan(date, [...currentRecipeIds, recipeId]);
-    setShowRecipeSelector(false);
-    setSelectedDate(null);
-  };
-
-  const handleRemoveRecipe = (date: string, recipeId: string) => {
-    const currentPlan = getMealPlan(date);
-    if (currentPlan) {
-      const updatedRecipeIds = currentPlan.recipeIds.filter(id => id !== recipeId);
-      updateMealPlan(date, updatedRecipeIds);
+    for (const entry of mealPlan) {
+      const bucket = byDate.get(entry.date);
+      if (!bucket) continue;
+      const n = nutritionForEntry(entry.recipeId, entry.servings);
+      bucket.calories += n.calories;
+      bucket.protein += n.protein;
+      bucket.carbs += n.carbs;
+      bucket.fat += n.fat;
+      bucket.fiber += n.fiber;
+      bucket.sugar += n.sugar;
+      bucket.sodium += n.sodium;
     }
+    return byDate;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dates, mealPlan, recipes]);
+
+  const plannedCount = mealPlan.filter((e) => dates.includes(e.date)).length;
+
+  const buildList = () => {
+    const count = generateGroceryList(dates);
+    if (count === 0) {
+      toast.error('Nothing planned this week', {
+        description: 'Add some meals first.',
+      });
+      return;
+    }
+    toast.success(`Built a list of ${count} items`, {
+      action: { label: 'View', onClick: () => navigate('/groceries') },
+    });
   };
 
-  const openRecipeSelector = (date: string) => {
-    setSelectedDate(date);
-    setShowRecipeSelector(true);
+  const weekLabel = () => {
+    const start = new Date(`${dates[0]}T00:00:00`);
+    const end = new Date(`${dates[6]}T00:00:00`);
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return `${fmt(start)} – ${fmt(end)}`;
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Weekly Meal Plan</h1>
-        <p className="text-gray-600">Plan your meals for the week</p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Meal plan"
+        description="Plan the week, then turn it into a shopping list."
+        action={
+          <>
+            <Button variant="outline" onClick={buildList} disabled={plannedCount === 0}>
+              <ShoppingCart className="size-4" />
+              Build list
+            </Button>
+            {plannedCount > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Clear this week"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  clearWeek(dates);
+                  toast.success('Cleared the week');
+                }}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            )}
+          </>
+        }
+      />
+
+      <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setWeekOffset((w) => w - 1)}
+          aria-label="Previous week"
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <div className="text-center">
+          <p className="text-sm font-semibold">{weekLabel()}</p>
+          <p className="text-xs text-muted-foreground">
+            {weekOffset === 0
+              ? 'This week'
+              : weekOffset === 1
+                ? 'Next week'
+                : weekOffset === -1
+                  ? 'Last week'
+                  : `${weekOffset > 0 ? '+' : ''}${weekOffset} weeks`}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          {weekOffset !== 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setWeekOffset(0)}>
+              Today
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setWeekOffset((w) => w + 1)}
+            aria-label="Next week"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* Week View */}
-      <div className="space-y-4">
-        {currentWeek.map((date, index) => {
-          const dayRecipes = getRecipesForDate(date);
-          const dayName = dayNames[index];
-          const dayDate = new Date(date).getDate();
-          const isToday = date === new Date().toISOString().split('T')[0];
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3">
+          {dates.map((date) => {
+            const d = new Date(`${date}T00:00:00`);
+            const isToday = date === today;
+            const totals = weekTotals.get(date) ?? EMPTY_NUTRIENTS;
+            const entries = mealPlan.filter((e) => e.date === date);
 
-          return (
-            <div key={date} className="card">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                    isToday ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    <div className="text-center">
-                      <div className="text-xs font-medium">{dayName}</div>
-                      <div className="text-sm font-bold">{dayDate}</div>
-                    </div>
-                  </div>
+            return (
+              <Card
+                key={date}
+                className={cn('flex flex-col', isToday && 'border-primary/40 ring-1 ring-primary/20')}
+              >
+                <CardHeader className="flex-row items-center justify-between space-y-0 p-4 pb-2">
                   <div>
-                    <h3 className="font-semibold text-gray-900">{dayName}</h3>
-                    <p className="text-sm text-gray-600">
-                      {new Date(date).toLocaleDateString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric' 
-                      })}
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      {d.toLocaleDateString(undefined, { weekday: 'long' })}
+                      {isToday && <Badge className="px-1.5 py-0 text-[10px]">Today</Badge>}
+                    </CardTitle>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </p>
                   </div>
-                </div>
-                
-                <button
-                  onClick={() => openRecipeSelector(date)}
-                  className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
-              </div>
+                  {totals.calories > 0 && (
+                    <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                      {Math.round(totals.calories)} kcal
+                    </span>
+                  )}
+                </CardHeader>
 
-              {/* Planned Recipes */}
-              <div className="space-y-2">
-                {dayRecipes.length === 0 ? (
-                  <div className="text-center py-4 text-gray-500">
-                    <Calendar className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No meals planned</p>
-                  </div>
-                ) : (
-                  dayRecipes.map((recipe) => (
-                    <div key={recipe.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <img
-                        src={recipe.image}
-                        alt={recipe.title}
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{recipe.title}</h4>
-                        <p className="text-sm text-gray-600">{recipe.prepTime + recipe.cookTime}m • {recipe.servings} servings</p>
+                <CardContent className="flex-1 space-y-2 p-4 pt-1">
+                  {MEAL_SLOTS.map((slot) => {
+                    const slotEntries = entries.filter((e) => e.slot === slot);
+                    if (slotEntries.length === 0) return null;
+                    return (
+                      <div key={slot} className="space-y-1">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {SLOT_LABEL[slot]}
+                        </p>
+                        {slotEntries.map((entry) => {
+                          const recipe = getRecipe(entry.recipeId);
+                          if (!recipe) return null;
+                          const n = nutritionForEntry(entry.recipeId, entry.servings);
+                          return (
+                            <div
+                              key={entry.id}
+                              className="group flex items-center gap-2 rounded-lg bg-secondary/60 p-1.5"
+                            >
+                              <img
+                                src={recipe.image}
+                                alt=""
+                                loading="lazy"
+                                className="size-9 shrink-0 rounded-md object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/recipes/${recipe.id}`)}
+                                className="min-w-0 flex-1 text-left"
+                              >
+                                <span className="block truncate text-xs font-medium">
+                                  {recipe.title}
+                                </span>
+                                <span className="block text-[11px] tabular-nums text-muted-foreground">
+                                  {Math.round(n.calories)} kcal
+                                </span>
+                              </button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Remove ${recipe.title}`}
+                                onClick={() => removeMeal(entry.id)}
+                                className="shrink-0 text-muted-foreground hover:text-destructive"
+                              >
+                                <X className="size-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <button
-                        onClick={() => handleRemoveRecipe(date, recipe.id)}
-                        className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          );
-        })}
+                    );
+                  })}
+
+                  {entries.length === 0 && (
+                    <p className="py-2 text-xs text-muted-foreground">Nothing planned</p>
+                  )}
+                </CardContent>
+
+                <div className="grid grid-cols-2 gap-1 border-t p-2">
+                  {MEAL_SLOTS.map((slot) => (
+                    <Button
+                      key={slot}
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 justify-start px-2 text-[11px] text-muted-foreground"
+                      onClick={() => setPicking({ date, slot })}
+                    >
+                      <Plus className="size-3" />
+                      {SLOT_LABEL[slot]}
+                    </Button>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        <aside className="xl:sticky xl:top-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Daily average</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Across the {dates.filter((d) => (weekTotals.get(d)?.calories ?? 0) > 0).length || 0}{' '}
+                planned days, against your targets.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const plannedDays = dates.filter(
+                  (d) => (weekTotals.get(d)?.calories ?? 0) > 0
+                );
+                if (plannedDays.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground">
+                      Plan a meal to see how the week adds up.
+                    </p>
+                  );
+                }
+                const sum = plannedDays.reduce(
+                  (acc, d) => {
+                    const t = weekTotals.get(d)!;
+                    acc.calories += t.calories;
+                    acc.protein += t.protein;
+                    acc.carbs += t.carbs;
+                    acc.fat += t.fat;
+                    return acc;
+                  },
+                  { calories: 0, protein: 0, carbs: 0, fat: 0 }
+                );
+                const n = plannedDays.length;
+                const t = preferences.targets;
+                return (
+                  <>
+                    <TargetBar
+                      label="Energy"
+                      value={sum.calories / n}
+                      target={t.calories}
+                      unit=" kcal"
+                    />
+                    <TargetBar
+                      label="Protein"
+                      value={sum.protein / n}
+                      target={t.protein}
+                      indicatorClassName="bg-macro-protein"
+                    />
+                    <TargetBar
+                      label="Carbs"
+                      value={sum.carbs / n}
+                      target={t.carbs}
+                      indicatorClassName="bg-macro-carbs"
+                    />
+                    <TargetBar
+                      label="Fat"
+                      value={sum.fat / n}
+                      target={t.fat}
+                      indicatorClassName="bg-macro-fat"
+                    />
+                    <p className="border-t pt-3 text-xs text-muted-foreground">
+                      Estimates only. Adjust your targets in Settings.
+                    </p>
+                  </>
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </aside>
       </div>
 
-      {/* Recipe Selector Modal */}
-      {showRecipeSelector && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50 p-4">
-          <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[70vh] overflow-hidden">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Select Recipe</h3>
-                <button
-                  onClick={() => setShowRecipeSelector(false)}
-                  className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4 overflow-y-auto max-h-[calc(70vh-80px)]">
-              <div className="space-y-2">
-                {recipes.map((recipe) => (
+      <RecipePicker
+        open={picking !== null}
+        slot={picking?.slot}
+        recipes={recipes}
+        onClose={() => setPicking(null)}
+        onPick={(recipe) => {
+          if (!picking) return;
+          addMeal(picking.date, picking.slot, recipe.id, recipe.servings);
+          toast.success(`Added "${recipe.title}"`);
+          setPicking(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function RecipePicker({
+  open,
+  slot,
+  recipes,
+  onClose,
+  onPick,
+}: {
+  open: boolean;
+  slot?: MealSlot;
+  recipes: Recipe[];
+  onClose: () => void;
+  onPick: (recipe: Recipe) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(v) => (v ? null : onClose())}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Add {slot ? SLOT_LABEL[slot].toLowerCase() : 'a meal'}</DialogTitle>
+          <DialogDescription>Choose a recipe from your collection.</DialogDescription>
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          {recipes.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="No recipes yet"
+              description="Add a recipe before planning meals."
+              className="border-0"
+            />
+          ) : (
+            <ul className="space-y-1">
+              {recipes.map((recipe) => (
+                <li key={recipe.id}>
                   <button
-                    key={recipe.id}
-                    onClick={() => handleAddRecipe(selectedDate, recipe.id)}
-                    className="w-full flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left"
+                    type="button"
+                    onClick={() => onPick(recipe)}
+                    className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <img
                       src={recipe.image}
-                      alt={recipe.title}
-                      className="w-12 h-12 rounded-lg object-cover"
+                      alt=""
+                      loading="lazy"
+                      className="size-12 shrink-0 rounded-lg object-cover"
                     />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{recipe.title}</h4>
-                      <p className="text-sm text-gray-600">{recipe.description}</p>
-                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{recipe.title}</span>
+                      <span className="block text-sm text-muted-foreground">
+                        {recipe.servings} servings ·{' '}
+                        {recipe.prepTime + recipe.cookTime} min
+                      </span>
+                    </span>
+                    <Plus className="size-4 shrink-0 text-muted-foreground" />
                   </button>
-                ))}
-              </div>
-            </div>
-          </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   );
-};
-
-// Helper function to get current week dates
-const getCurrentWeekDates = (): string[] => {
-  const today = new Date();
-  const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
-  const dates = [];
-  
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(startOfWeek);
-    date.setDate(startOfWeek.getDate() + i);
-    dates.push(date.toISOString().split('T')[0]);
-  }
-  
-  return dates;
-};
-
-export default MealPlanPage;
+}

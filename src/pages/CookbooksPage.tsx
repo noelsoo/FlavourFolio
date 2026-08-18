@@ -1,189 +1,180 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Plus, Search, Clock, Users } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
+import { BookOpen, BookPlus, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 
-const CookbooksPage = () => {
-  const { cookbooks, recipes, addCookbook } = useData();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newCookbook, setNewCookbook] = useState({ name: '', description: '' });
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { RecipeCard } from '@/components/RecipeCard';
+import { useData } from '@/contexts/DataContext';
 
-  const filteredCookbooks = cookbooks.filter(cookbook =>
-    cookbook.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    cookbook.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+export default function CookbooksPage() {
+  const { cookbooks, recipes, addCookbook, setShowAddRecipe } = useData();
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
 
-  const handleAddCookbook = () => {
-    if (newCookbook.name.trim()) {
-      addCookbook({
-        name: newCookbook.name,
-        description: newCookbook.description,
-        recipeIds: []
-      });
-      setNewCookbook({ name: '', description: '' });
-      setShowAddForm(false);
-    }
-  };
+  const recent = [...recipes]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 4);
 
-  const getCookbookStats = (cookbook: any) => {
-    const cookbookRecipes = recipes.filter(recipe => 
-      cookbook.recipeIds.includes(recipe.id)
-    );
-    const totalTime = cookbookRecipes.reduce((sum, recipe) => 
-      sum + recipe.prepTime + recipe.cookTime, 0
-    );
-    const avgServings = cookbookRecipes.length > 0 
-      ? Math.round(cookbookRecipes.reduce((sum, recipe) => sum + recipe.servings, 0) / cookbookRecipes.length)
-      : 0;
-    
-    return { totalRecipes: cookbookRecipes.length, totalTime, avgServings };
+  const create = () => {
+    if (!name.trim()) return;
+    const cookbook = addCookbook({ name: name.trim(), description: description.trim() });
+    toast.success(`Created "${cookbook.name}"`);
+    setName('');
+    setDescription('');
+    setCreating(false);
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      {/* Search Bar */}
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input
-          type="text"
-          placeholder="Search cookbooks..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+    <div className="space-y-8">
+      <PageHeader
+        title="My cookbooks"
+        description="Collections of recipes, grouped however suits you."
+        action={
+          <Button onClick={() => setCreating(true)}>
+            <BookPlus className="size-4" />
+            New cookbook
+          </Button>
+        }
+      />
+
+      {cookbooks.length === 0 ? (
+        <EmptyState
+          icon={BookOpen}
+          title="No cookbooks yet"
+          description="Cookbooks group related recipes — weeknight dinners, baking, whatever works."
+          action={
+            <Button onClick={() => setCreating(true)}>
+              <BookPlus className="size-4" />
+              Create a cookbook
+            </Button>
+          }
         />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {cookbooks.map((cookbook) => {
+            const contents = recipes.filter((r) => cookbook.recipeIds.includes(r.id));
+            const covers = contents.slice(0, 3);
 
-      {/* All Recipes Card */}
-      <Link to="/cookbooks/all" className="block mb-4">
-        <div className="recipe-card">
-          <div className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="bg-gradient-to-r from-primary-500 to-secondary-500 p-3 rounded-xl">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-semibold text-gray-900">All Recipes</h3>
-                <p className="text-gray-600">{recipes.length} recipes in total</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Link>
-
-      {/* Add Cookbook Button */}
-      <div className="mb-6">
-        {!showAddForm ? (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-primary-500 hover:bg-primary-50 transition-colors"
-          >
-            <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-600 font-medium">Create New Cookbook</p>
-          </button>
-        ) : (
-          <div className="card">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cookbook Name
-                </label>
-                <input
-                  type="text"
-                  value={newCookbook.name}
-                  onChange={(e) => setNewCookbook(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Weeknight Dinners"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newCookbook.description}
-                  onChange={(e) => setNewCookbook(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Brief description of this cookbook"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                />
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={handleAddCookbook}
-                  className="flex-1 btn-primary"
-                >
-                  Create
-                </button>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 btn-outline"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Cookbooks List */}
-      <div className="space-y-4">
-        {filteredCookbooks.map((cookbook) => {
-          const stats = getCookbookStats(cookbook);
-          return (
-            <Link key={cookbook.id} to={`/cookbooks/${cookbook.id}`}>
-              <div className="recipe-card">
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {cookbook.name}
-                      </h3>
-                      <p className="text-gray-600 text-sm line-clamp-2">
+            return (
+              <Link key={cookbook.id} to={`/cookbooks/${cookbook.id}`} className="group">
+                <Card interactive className="h-full overflow-hidden">
+                  <div className="flex h-28 gap-0.5 bg-muted">
+                    {covers.length === 0 ? (
+                      <div className="flex size-full items-center justify-center">
+                        <BookOpen className="size-7 text-muted-foreground/50" />
+                      </div>
+                    ) : (
+                      covers.map((recipe) => (
+                        <img
+                          key={recipe.id}
+                          src={recipe.image}
+                          alt=""
+                          loading="lazy"
+                          className="h-full flex-1 object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ))
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold leading-tight">{cookbook.name}</h3>
+                    {cookbook.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                         {cookbook.description}
                       </p>
-                    </div>
-                    <div className="bg-accent-100 p-2 rounded-lg ml-4">
-                      <BookOpen className="w-5 h-5 text-accent-600" />
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-sm text-gray-500">
-                    <div className="flex items-center space-x-4">
-                      <span>{stats.totalRecipes} recipes</span>
-                      {stats.totalTime > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>{stats.totalTime}m avg</span>
-                        </div>
-                      )}
-                      {stats.avgServings > 0 && (
-                        <div className="flex items-center space-x-1">
-                          <Users className="w-4 h-4" />
-                          <span>{stats.avgServings} servings</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-
-      {filteredCookbooks.length === 0 && searchTerm && (
-        <div className="text-center py-12">
-          <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No cookbooks found</h3>
-          <p className="text-gray-600">
-            Try adjusting your search terms or create a new cookbook
-          </p>
+                    )}
+                    <p className="mt-2.5 text-xs text-muted-foreground">
+                      {contents.length} {contents.length === 1 ? 'recipe' : 'recipes'}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
+
+      {recent.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl font-semibold">Recently added</h2>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/recipes">View all</Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {recent.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {recipes.length === 0 && (
+        <EmptyState
+          icon={Plus}
+          title="Your collection is empty"
+          description="Import a recipe from a link, paste one in, or write it out."
+          action={<Button onClick={() => setShowAddRecipe(true)}>Add a recipe</Button>}
+        />
+      )}
+
+      <Dialog open={creating} onOpenChange={setCreating}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New cookbook</DialogTitle>
+            <DialogDescription>Give this collection a name.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 px-5">
+            <div className="space-y-2">
+              <Label htmlFor="cb-name">Name</Label>
+              <Input
+                id="cb-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Sunday baking"
+                onKeyDown={(e) => e.key === 'Enter' && create()}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cb-desc">Description</Label>
+              <Textarea
+                id="cb-desc"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreating(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!name.trim()} onClick={create}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
-
-export default CookbooksPage;
+}

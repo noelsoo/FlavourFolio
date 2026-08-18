@@ -1,0 +1,233 @@
+/**
+ * Sample content for a first run, so the app isn't an empty shell.
+ * Written as factory functions because each call needs fresh Date objects.
+ */
+
+import type { Cookbook, Recipe } from '@/contexts/DataContext';
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+
+export function seedRecipes(): Recipe[] {
+  return [
+    {
+      id: 'seed-tuscan-chicken',
+      title: 'Creamy Tuscan Chicken',
+      description: 'Seared chicken in a garlicky cream sauce with sun-dried tomatoes and spinach.',
+      image:
+        'https://images.pexels.com/photos/2338407/pexels-photo-2338407.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '4 chicken breasts',
+        '1 cup heavy cream',
+        '1/2 cup sun-dried tomatoes',
+        '2 cups fresh spinach',
+        '3 cloves garlic, minced',
+        '2 tbsp olive oil',
+        '1/4 cup parmesan cheese, grated',
+        '1 tsp italian seasoning',
+        'Salt and pepper to taste',
+      ],
+      instructions: [
+        'Season the chicken breasts with salt, pepper and Italian seasoning.',
+        'Heat the olive oil in a large skillet over medium-high heat.',
+        'Cook the chicken until golden on both sides, then remove and set aside.',
+        'Add the garlic to the same pan and cook for 1 minute until fragrant.',
+        'Stir in the sun-dried tomatoes, then pour in the cream and parmesan.',
+        'Return the chicken to the pan and simmer for 5 minutes.',
+        'Add the spinach and cook until just wilted, then serve.',
+      ],
+      prepTime: 15,
+      cookTime: 25,
+      servings: 4,
+      cuisine: 'Italian',
+      tags: ['dinner', 'chicken', 'one-pan'],
+      isFavorite: true,
+      createdAt: daysAgo(21),
+      updatedAt: daysAgo(21),
+    },
+    {
+      id: 'seed-honey-salmon',
+      title: 'Honey Garlic Salmon',
+      description: 'Sweet and savoury glazed salmon with a crisp edge and a soft centre.',
+      image:
+        'https://images.pexels.com/photos/1410235/pexels-photo-1410235.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '4 salmon fillets',
+        '1/4 cup honey',
+        '3 cloves garlic, minced',
+        '2 tbsp soy sauce',
+        '1 tbsp olive oil',
+        '1 tsp ginger, grated',
+        '2 spring onions',
+      ],
+      instructions: [
+        'Preheat the oven to 200°C / 400°F.',
+        'Whisk together the honey, garlic, soy sauce and ginger.',
+        'Place the salmon on a lined baking sheet and brush generously with the glaze.',
+        'Bake for 12 to 15 minutes, until the fish flakes easily.',
+        'Scatter over the sliced spring onions and serve.',
+      ],
+      prepTime: 10,
+      cookTime: 15,
+      servings: 4,
+      cuisine: 'Asian',
+      tags: ['dinner', 'fish', 'quick'],
+      createdAt: daysAgo(18),
+      updatedAt: daysAgo(18),
+    },
+    {
+      id: 'seed-caesar-salad',
+      title: 'Classic Caesar Salad',
+      description: 'Crisp romaine with an anchovy-sharp dressing and plenty of parmesan.',
+      image:
+        'https://images.pexels.com/photos/2097090/pexels-photo-2097090.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '2 heads romaine lettuce',
+        '1/2 cup parmesan cheese, grated',
+        '1/4 cup olive oil',
+        '2 tbsp lemon juice',
+        '2 anchovy fillets',
+        '1 clove garlic',
+        '1 tsp dijon mustard',
+        '1 cup breadcrumbs',
+      ],
+      instructions: [
+        'Wash and roughly chop the romaine.',
+        'Mash the anchovies and garlic together into a paste.',
+        'Whisk in the lemon juice, mustard, then the olive oil.',
+        'Toss the leaves through the dressing until evenly coated.',
+        'Top with parmesan and croutons and serve straight away.',
+      ],
+      prepTime: 15,
+      cookTime: 0,
+      servings: 4,
+      cuisine: 'American',
+      tags: ['salad', 'lunch', 'vegetarian'],
+      createdAt: daysAgo(14),
+      updatedAt: daysAgo(14),
+    },
+    {
+      id: 'seed-chickpea-curry',
+      title: 'Weeknight Chickpea Curry',
+      description: 'A storecupboard curry that comes together in one pan in under half an hour.',
+      image:
+        'https://images.pexels.com/photos/2474661/pexels-photo-2474661.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '2 tbsp vegetable oil',
+        '1 onion, diced',
+        '3 cloves garlic, minced',
+        '1 tbsp ginger, grated',
+        '2 tbsp curry powder',
+        '1 (14 oz) can crushed tomatoes',
+        '1 (14 oz) can coconut milk',
+        '2 cans chickpeas',
+        '2 cups fresh spinach',
+        '1 tsp salt',
+      ],
+      instructions: [
+        'Heat the oil in a large pan and soften the onion for 5 minutes.',
+        'Add the garlic, ginger and curry powder and cook for 1 minute.',
+        'Pour in the tomatoes and coconut milk and bring to a simmer.',
+        'Stir in the drained chickpeas and simmer for 15 minutes.',
+        'Fold through the spinach until wilted, season, and serve with rice.',
+      ],
+      prepTime: 10,
+      cookTime: 25,
+      servings: 4,
+      cuisine: 'Indian',
+      tags: ['dinner', 'vegan', 'budget'],
+      createdAt: daysAgo(9),
+      updatedAt: daysAgo(9),
+    },
+    {
+      id: 'seed-overnight-oats',
+      title: 'Peanut Butter Overnight Oats',
+      description: 'Five minutes the night before, breakfast sorted for the morning.',
+      image:
+        'https://images.pexels.com/photos/1092730/pexels-photo-1092730.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '1 cup rolled oats',
+        '1 cup milk',
+        '2 tbsp peanut butter',
+        '1 tbsp honey',
+        '1 tbsp chia seeds',
+        '1 banana',
+      ],
+      instructions: [
+        'Stir the oats, milk, peanut butter, honey and chia seeds together in a jar.',
+        'Cover and refrigerate overnight, or for at least 4 hours.',
+        'Top with sliced banana in the morning and eat cold.',
+      ],
+      prepTime: 5,
+      cookTime: 0,
+      servings: 2,
+      cuisine: 'American',
+      tags: ['breakfast', 'make-ahead', 'vegetarian'],
+      createdAt: daysAgo(5),
+      updatedAt: daysAgo(5),
+    },
+    {
+      id: 'seed-beef-chilli',
+      title: 'Smoky Beef Chilli',
+      description: 'A deep, smoky chilli that gets better on the second day.',
+      image:
+        'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ingredients: [
+        '1 lb ground beef',
+        '1 onion, diced',
+        '3 cloves garlic, minced',
+        '2 tbsp smoked paprika',
+        '1 tbsp cumin',
+        '1 (14 oz) can crushed tomatoes',
+        '2 cans kidney beans',
+        '1 cup beef stock',
+        '1 tsp salt',
+      ],
+      instructions: [
+        'Brown the beef in a heavy pan over high heat, then set aside.',
+        'Soften the onion and garlic in the same pan for 5 minutes.',
+        'Stir in the paprika and cumin and cook until fragrant.',
+        'Return the beef, add the tomatoes, beans and stock.',
+        'Simmer uncovered for 40 minutes, stirring now and then. Season and serve.',
+      ],
+      prepTime: 15,
+      cookTime: 50,
+      servings: 6,
+      cuisine: 'Mexican',
+      tags: ['dinner', 'batch-cook', 'beef'],
+      createdAt: daysAgo(2),
+      updatedAt: daysAgo(2),
+    },
+  ];
+}
+
+export function seedCookbooks(): Cookbook[] {
+  return [
+    {
+      id: 'seed-weeknight',
+      name: 'Weeknight Dinners',
+      description: 'On the table in under an hour.',
+      recipeIds: ['seed-tuscan-chicken', 'seed-honey-salmon', 'seed-chickpea-curry'],
+      color: 'primary',
+      createdAt: daysAgo(21),
+      updatedAt: daysAgo(2),
+    },
+    {
+      id: 'seed-healthy',
+      name: 'Lighter Choices',
+      description: 'Balanced plates without much effort.',
+      recipeIds: ['seed-honey-salmon', 'seed-caesar-salad', 'seed-overnight-oats'],
+      color: 'accent',
+      createdAt: daysAgo(18),
+      updatedAt: daysAgo(5),
+    },
+    {
+      id: 'seed-batch',
+      name: 'Batch Cooking',
+      description: 'Cook once, eat all week.',
+      recipeIds: ['seed-beef-chilli', 'seed-chickpea-curry'],
+      color: 'macro-protein',
+      createdAt: daysAgo(9),
+      updatedAt: daysAgo(2),
+    },
+  ];
+}

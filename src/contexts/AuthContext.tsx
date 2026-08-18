@@ -1,20 +1,33 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
-interface User {
+import { uid } from '@/lib/utils';
+import { loadState, saveState, StorageKeys } from '@/lib/storage';
+
+export interface User {
   id: string;
   email: string;
   name: string;
+  createdAt: Date;
 }
 
-interface AuthContextType {
+interface AuthContextValue {
   user: User | null;
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
-  loading: boolean;
+  updateProfile: (updates: Partial<Pick<User, 'name' | 'email'>>) => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -24,59 +37,102 @@ export const useAuth = () => {
   return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
+/**
+ * This is a local-only account, held in this browser. There is no server and
+ * no password check — the credentials are not verified against anything, and
+ * the data lives in localStorage. Wire `login`/`register` to a real backend
+ * before treating any of this as authentication.
+ */
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+export function validateEmail(email: string): string | null {
+  if (!email.trim()) return 'Enter your email address.';
+  if (!EMAIL_RE.test(email.trim())) return 'That email address does not look right.';
+  return null;
+}
+
+export function validatePassword(password: string): string | null {
+  if (!password) return 'Enter a password.';
+  if (password.length < 8) return 'Use at least 8 characters.';
+  return null;
+}
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user data
-    const storedUser = localStorage.getItem('flavorfolio_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    setUser(loadState<User | null>(StorageKeys.user, null));
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Mock authentication - in real app, this would call your backend
-    const mockUser = {
-      id: '1',
-      email,
-      name: email.split('@')[0],
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('flavorfolio_user', JSON.stringify(mockUser));
-  };
+  const login = useCallback(async (email: string, password: string) => {
+    const emailError = validateEmail(email);
+    if (emailError) throw new AuthError(emailError);
+    const passwordError = validatePassword(password);
+    if (passwordError) throw new AuthError(passwordError);
 
-  const register = async (email: string, password: string, name: string) => {
-    // Mock registration - in real app, this would call your backend
-    const mockUser = {
-      id: Math.random().toString(36).substr(2, 9),
-      email,
-      name,
-    };
-    
-    setUser(mockUser);
-    localStorage.setItem('flavorfolio_user', JSON.stringify(mockUser));
-  };
+    const existing = loadState<User | null>(StorageKeys.user, null);
+    // Returning to an account already on this device keeps its name and id.
+    const next: User =
+      existing && existing.email.toLowerCase() === email.trim().toLowerCase()
+        ? existing
+        : {
+            id: uid(),
+            email: email.trim(),
+            name: email.trim().split('@')[0],
+            createdAt: new Date(),
+          };
 
-  const logout = () => {
+    setUser(next);
+    saveState(StorageKeys.user, next);
+  }, []);
+
+  const register = useCallback(async (email: string, password: string, name: string) => {
+    const emailError = validateEmail(email);
+    if (emailError) throw new AuthError(emailError);
+    const passwordError = validatePassword(password);
+    if (passwordError) throw new AuthError(passwordError);
+    if (!name.trim()) throw new AuthError('Enter your name.');
+
+    const next: User = {
+      id: uid(),
+      email: email.trim(),
+      name: name.trim(),
+      createdAt: new Date(),
+    };
+    setUser(next);
+    saveState(StorageKeys.user, next);
+  }, []);
+
+  const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('flavorfolio_user');
-  };
+    saveState(StorageKeys.user, null);
+  }, []);
 
-  const value = {
-    user,
-    login,
-    register,
-    logout,
-    loading,
-  };
+  const updateProfile = useCallback(
+    (updates: Partial<Pick<User, 'name' | 'email'>>) => {
+      setUser((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, ...updates };
+        saveState(StorageKeys.user, next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const value = useMemo(
+    () => ({ user, loading, login, register, logout, updateProfile }),
+    [user, loading, login, register, logout, updateProfile]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

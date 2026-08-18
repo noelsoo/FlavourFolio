@@ -1,146 +1,132 @@
-import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { ChefHat as Chef, Eye, EyeOff } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { ChefHat, AlertTriangle } from 'lucide-react';
 
-const LoginPage = () => {
-  const { user, login, register } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: ''
-  });
-  const [loading, setLoading] = useState(false);
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AuthError, useAuth } from '@/contexts/AuthContext';
 
-  if (user) {
-    return <Navigate to="/cookbooks" replace />;
-  }
+export default function LoginPage() {
+  const { user, loading, login, register } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
+  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (loading) return null;
+  if (user) return <Navigate to="/cookbooks" replace />;
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
     try {
-      if (isLogin) {
-        await login(formData.email, formData.password);
-      } else {
-        await register(formData.email, formData.password, formData.name);
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
+      if (mode === 'login') await login(email, password);
+      else await register(email, password, name);
+      navigate('/cookbooks', { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof AuthError ? err.message : 'Something went wrong. Try again.'
+      );
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Chef className="w-8 h-8 text-primary-500" />
-            <h1 className="text-3xl font-bold text-primary-500">FlavorFolio</h1>
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+            <ChefHat className="size-7" />
           </div>
-          <p className="text-gray-600">Your ultimate kitchen companion</p>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            FlavourFolio
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Your recipes, meal plans and shopping lists in one place.
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-              {isLogin ? 'Welcome back!' : 'Create account'}
-            </h2>
-            <p className="text-gray-600">
-              {isLogin ? 'Sign in to your account' : 'Join thousands of home cooks'}
-            </p>
-          </div>
+        <Card>
+          <CardContent className="p-5">
+            <Tabs value={mode} onValueChange={(v) => { setMode(v as typeof mode); setError(null); }}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Sign in</TabsTrigger>
+                <TabsTrigger value="register">Create account</TabsTrigger>
+              </TabsList>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter your full name"
-                />
-              </div>
-            )}
+              <form onSubmit={submit} className="mt-5 space-y-4">
+                <TabsContent value="register" className="mt-0 space-y-2">
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    autoComplete="name"
+                    placeholder="Alex Chen"
+                  />
+                </TabsContent>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="Enter your email"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                  />
+                </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 py-3"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>{isLogin ? 'Signing in...' : 'Creating account...'}</span>
-                </>
-              ) : (
-                <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
-              )}
-            </button>
-          </form>
+                {error && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/8 p-2.5 text-sm"
+                  >
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                    {error}
+                  </p>
+                )}
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                {isLogin ? 'Sign up' : 'Sign in'}
-              </button>
-            </p>
-          </div>
-        </div>
+                <Button type="submit" className="w-full" loading={busy}>
+                  {mode === 'login' ? 'Sign in' : 'Create account'}
+                </Button>
+              </form>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/*
+          Being straight with the user about what this actually is, rather than
+          implying their data is protected by a real account system.
+        */}
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">
+          This account is stored only in this browser — there is no server and the
+          password is not checked. Your recipes stay on this device.
+        </p>
       </div>
     </div>
   );
-};
-
-export default LoginPage;
+}

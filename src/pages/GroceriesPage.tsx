@@ -1,199 +1,254 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Plus, Share2, RefreshCw, ShoppingCart } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Check,
+  Plus,
+  RefreshCw,
+  Share2,
+  ShoppingCart,
+  X,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-const GroceriesPage = () => {
-  const { groceryItems, generateGroceryList, toggleGroceryItem, addGroceryItem } = useData();
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { useData, type GroceryItem } from '@/contexts/DataContext';
+import { cn, weekDates } from '@/lib/utils';
+
+export default function GroceriesPage() {
+  const navigate = useNavigate();
+  const {
+    groceryItems,
+    mealPlan,
+    generateGroceryList,
+    toggleGroceryItem,
+    addGroceryItem,
+    removeGroceryItem,
+    clearCompletedGroceries,
+    clearGroceryList,
+  } = useData();
+
   const [newItem, setNewItem] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
 
-  useEffect(() => {
-    if (groceryItems.length === 0) {
-      generateGroceryList();
+  const grouped = useMemo(() => {
+    const map = new Map<string, GroceryItem[]>();
+    for (const item of groceryItems) {
+      const list = map.get(item.category) ?? [];
+      list.push(item);
+      map.set(item.category, list);
     }
-  }, []);
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [groceryItems]);
 
-  const handleAddItem = () => {
-    if (newItem.trim()) {
-      addGroceryItem({
-        name: newItem,
-        quantity: newItem,
-        category: 'Custom',
-        isCompleted: false
+  const total = groceryItems.length;
+  const completed = groceryItems.filter((i) => i.isCompleted).length;
+  const pct = total > 0 ? (completed / total) * 100 : 0;
+
+  const hasPlan = mealPlan.some((e) => weekDates().includes(e.date));
+
+  const regenerate = () => {
+    const count = generateGroceryList(weekDates());
+    if (count === 0) {
+      toast.error('Nothing planned this week', {
+        description: 'Add meals to the plan first.',
+        action: { label: 'Plan meals', onClick: () => navigate('/meal-plan') },
       });
-      setNewItem('');
-      setShowAddForm(false);
+      return;
     }
+    toast.success(`Rebuilt from ${count} planned ingredients`);
   };
 
-  const handleShareList = () => {
-    const listText = groceryItems
-      .map(item => `${item.isCompleted ? '✓' : '○'} ${item.quantity}`)
-      .join('\n');
-    
+  const share = async () => {
+    const text = grouped
+      .map(
+        ([category, items]) =>
+          `${category}\n${items.map((i) => `${i.isCompleted ? '☑' : '☐'} ${i.display}`).join('\n')}`
+      )
+      .join('\n\n');
+
+    // navigator.share needs a user gesture and isn't everywhere; clipboard is
+    // the fallback, and both can be blocked, so report what actually happened.
     if (navigator.share) {
-      navigator.share({
-        title: 'FlavorFolio Grocery List',
-        text: listText,
-      });
-    } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(listText);
-      // You could show a toast notification here
+      try {
+        await navigator.share({ title: 'FlavourFolio grocery list', text });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied the list to your clipboard');
+    } catch {
+      toast.error('Could not share or copy the list');
     }
   };
 
-  const groupedItems = groceryItems.reduce((groups, item) => {
-    const category = item.category;
-    if (!groups[category]) {
-      groups[category] = [];
-    }
-    groups[category].push(item);
-    return groups;
-  }, {} as Record<string, typeof groceryItems>);
-
-  const categories = Object.keys(groupedItems).sort();
-  const completedCount = groceryItems.filter(item => item.isCompleted).length;
-  const totalCount = groceryItems.length;
+  const submitNew = () => {
+    if (!newItem.trim()) return;
+    addGroceryItem(newItem);
+    setNewItem('');
+  };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Grocery List</h1>
-            <p className="text-gray-600">
-              {completedCount} of {totalCount} items completed
-            </p>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={generateGroceryList}
-              className="p-2 text-gray-600 hover:text-primary-600 transition-colors"
-              title="Regenerate from meal plan"
-            >
-              <RefreshCw className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleShareList}
-              className="p-2 text-gray-600 hover:text-primary-600 transition-colors"
-              title="Share list"
-            >
-              <Share2 className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Groceries"
+        description={
+          total > 0
+            ? `${completed} of ${total} picked up`
+            : 'Built from the meals you have planned.'
+        }
+        action={
+          <>
+            <Button variant="outline" onClick={regenerate}>
+              <RefreshCw className="size-4" />
+              Rebuild
+            </Button>
+            {total > 0 && (
+              <Button variant="outline" size="icon" onClick={share} aria-label="Share list">
+                <Share2 className="size-4" />
+              </Button>
+            )}
+          </>
+        }
+      />
 
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-          <div 
-            className="bg-primary-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%` }}
-          ></div>
-        </div>
-      </div>
-
-      {/* Add Item Button */}
-      <div className="mb-6">
-        {!showAddForm ? (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-primary-500 hover:bg-primary-50 transition-colors"
-          >
-            <Plus className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-600 font-medium">Add Custom Item</p>
-          </button>
-        ) : (
-          <div className="card">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Item Name
-                </label>
-                <input
-                  type="text"
-                  value={newItem}
-                  onChange={(e) => setNewItem(e.target.value)}
-                  placeholder="e.g., 2 lbs ground beef"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
-                />
-              </div>
-              <div className="flex space-x-3">
+      {total > 0 && (
+        <div className="space-y-2">
+          <Progress value={pct} />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{Math.round(pct)}% complete</span>
+            <div className="flex gap-3">
+              {completed > 0 && (
                 <button
-                  onClick={handleAddItem}
-                  className="flex-1 btn-primary"
+                  type="button"
+                  className="hover:text-foreground"
+                  onClick={clearCompletedGroceries}
                 >
-                  Add Item
+                  Clear picked up
                 </button>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="flex-1 btn-outline"
-                >
-                  Cancel
-                </button>
-              </div>
+              )}
+              <button
+                type="button"
+                className="hover:text-destructive"
+                onClick={() => {
+                  clearGroceryList();
+                  toast.success('Emptied the list');
+                }}
+              >
+                Empty list
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <Input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submitNew()}
+          placeholder="Add an item, e.g. 2 lbs potatoes"
+          aria-label="Add a grocery item"
+        />
+        <Button
+          onClick={submitNew}
+          disabled={!newItem.trim()}
+          className="shrink-0"
+          aria-label="Add item to list"
+        >
+          <Plus className="size-4" />
+          <span className="hidden sm:inline">Add</span>
+        </Button>
       </div>
 
-      {/* Grocery List */}
-      {totalCount === 0 ? (
-        <div className="text-center py-12">
-          <ShoppingCart className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No items in your list</h3>
-          <p className="text-gray-600 mb-4">
-            Add recipes to your meal plan to automatically generate a grocery list
-          </p>
-          <button
-            onClick={generateGroceryList}
-            className="btn-primary"
-          >
-            Generate from Meal Plan
-          </button>
-        </div>
+      {total === 0 ? (
+        <EmptyState
+          icon={ShoppingCart}
+          title="Your list is empty"
+          description={
+            hasPlan
+              ? 'You have meals planned this week — build the list from them.'
+              : 'Plan some meals and the ingredients will be combined into a list here.'
+          }
+          action={
+            hasPlan ? (
+              <Button onClick={regenerate}>
+                <RefreshCw className="size-4" />
+                Build from meal plan
+              </Button>
+            ) : (
+              <Button onClick={() => navigate('/meal-plan')}>Plan some meals</Button>
+            )
+          }
+        />
       ) : (
-        <div className="space-y-6">
-          {categories.map((category) => (
-            <div key={category} className="card">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                <div className="w-3 h-3 bg-primary-500 rounded-full"></div>
-                <span>{category}</span>
-              </h3>
-              
-              <div className="space-y-3">
-                {groupedItems[category].map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3">
-                    <button
-                      onClick={() => toggleGroceryItem(item.id)}
-                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                        item.isCompleted
-                          ? 'bg-primary-500 border-primary-500 text-white'
-                          : 'border-gray-300 hover:border-primary-500'
-                      }`}
-                    >
-                      {item.isCompleted && <Check className="w-4 h-4" />}
-                    </button>
-                    
-                    <div className="flex-1">
-                      <span className={`${
-                        item.isCompleted 
-                          ? 'line-through text-gray-500' 
-                          : 'text-gray-900'
-                      }`}>
-                        {item.quantity}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {grouped.map(([category, items]) => (
+            <Card key={category}>
+              <CardContent className="p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <span className="size-2 rounded-full bg-primary" />
+                    {category}
+                  </h2>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {items.filter((i) => i.isCompleted).length}/{items.length}
+                  </span>
+                </div>
+
+                <ul className="space-y-0.5">
+                  {items.map((item) => (
+                    <li key={item.id} className="group flex items-start gap-2.5 py-1.5">
+                      <Checkbox
+                        id={item.id}
+                        checked={item.isCompleted}
+                        onCheckedChange={() => toggleGroceryItem(item.id)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <label
+                        htmlFor={item.id}
+                        className={cn(
+                          'min-w-0 flex-1 cursor-pointer text-sm leading-snug',
+                          item.isCompleted && 'text-muted-foreground line-through'
+                        )}
+                      >
+                        {item.display}
+                        {item.sources.length > 0 && (
+                          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                            {item.sources.join(' · ')}
+                          </span>
+                        )}
+                      </label>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        onClick={() => removeGroceryItem(item.id)}
+                        className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           ))}
+        </div>
+      )}
+
+      {total > 0 && completed === total && (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/8 p-4 text-sm font-medium text-primary">
+          <Check className="size-4" />
+          Everything picked up.
         </div>
       )}
     </div>
   );
-};
-
-export default GroceriesPage;
+}
