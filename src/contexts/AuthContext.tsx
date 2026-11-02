@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Check for stored user data
-    const storedUser = localStorage.getItem('flavorfolio_user');
+    const storedUser = localStorage.getItem('mise_user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
@@ -50,7 +50,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     
     setUser(mockUser);
-    localStorage.setItem('flavorfolio_user', JSON.stringify(mockUser));
+    localStorage.setItem('mise_user', JSON.stringify(mockUser));
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -62,12 +62,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     
     setUser(mockUser);
-    localStorage.setItem('flavorfolio_user', JSON.stringify(mockUser));
+    localStorage.setItem('mise_user', JSON.stringify(mockUser));
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('flavorfolio_user');
+    localStorage.removeItem('mise_user');
   };
 
   const value = {

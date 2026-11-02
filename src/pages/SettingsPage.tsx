@@ -86,7 +86,7 @@ const SettingsPage = () => {
 
       {/* App Version */}
       <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-        <p className="text-sm text-gray-500">FlavorFolio v1.0.0</p>
+        <p className="text-sm text-gray-500">Mise v1.0.0</p>
       </div>
     </div>
   );

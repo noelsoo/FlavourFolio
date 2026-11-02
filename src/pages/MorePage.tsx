@@ -23,7 +23,7 @@ const MorePage = () => {
     },
     {
       icon: Star,
-      title: 'Rate FlavorFolio',
+      title: 'Rate Mise',
       description: 'Leave a review in the app store',
       to: '#',
       color: 'bg-yellow-100 text-yellow-600'
@@ -31,7 +31,7 @@ const MorePage = () => {
     {
       icon: MessageCircle,
       title: 'Send Feedback',
-      description: 'Help us improve FlavorFolio',
+      description: 'Help us improve Mise',
       to: '#',
       color: 'bg-green-100 text-green-600'
     }
@@ -77,7 +77,7 @@ const MorePage = () => {
 
       {/* Quick Stats */}
       <div className="card mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your FlavorFolio</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Mise</h3>
         <div className="grid grid-cols-3 gap-4">
           {quickStats.map((stat) => (
             <div key={stat.label} className="text-center">
@@ -112,7 +112,7 @@ const MorePage = () => {
 
       {/* App Info */}
       <div className="mt-8 pt-6 border-t border-gray-200 text-center">
-        <p className="text-sm text-gray-500 mb-2">FlavorFolio v1.0.0</p>
+        <p className="text-sm text-gray-500 mb-2">Mise v1.0.0</p>
         <p className="text-xs text-gray-400">
           Made with ❤️ for home cooks everywhere
         </p>

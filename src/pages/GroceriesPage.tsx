@@ -33,7 +33,7 @@ const GroceriesPage = () => {
     
     if (navigator.share) {
       navigator.share({
-        title: 'FlavorFolio Grocery List',
+        title: 'Mise Grocery List',
         text: listText,
       });
     } else {

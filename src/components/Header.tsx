@@ -24,7 +24,7 @@ const Header = () => {
         } else if (location.pathname.startsWith('/recipes/')) {
           return 'Recipe';
         }
-        return 'FlavorFolio';
+        return 'Mise';
     }
   };
 
@@ -53,7 +53,7 @@ const Header = () => {
           ) : (
             <div className="flex items-center space-x-2">
               <Chef className="w-6 h-6 text-primary-500" />
-              <span className="text-lg font-semibold text-primary-500">FlavorFolio</span>
+              <span className="text-lg font-semibold text-primary-500">Mise</span>
             </div>
           )}
         </div>
