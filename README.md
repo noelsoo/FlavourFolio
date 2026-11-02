@@ -1,2 +1,2 @@
-# FlavourFolio
+# Mise
 A recipe app
